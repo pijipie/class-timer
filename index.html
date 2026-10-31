@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="ms">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pemasa Kelas</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2rem;
+        font-family: system-ui, sans-serif;
+        background: #10202e;
+        color: #fff;
+      }
+      body.done {
+        animation: flash 0.6s steps(1) infinite;
+      }
+      @keyframes flash {
+        50% {
+          background: #b3261e;
+        }
+      }
+      #time {
+        font-size: min(30vw, 40vh);
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: center;
+      }
+      button,
+      input {
+        font-size: 1.25rem;
+        padding: 0.6rem 1rem;
+        border-radius: 0.5rem;
+        border: 0;
+      }
+      button {
+        background: #2d5a7b;
+        color: #fff;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #3b77a3;
+      }
+      input {
+        width: 5rem;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="time">05:00</div>
+    <div class="row">
+      <button data-min="1">1 min</button>
+      <button data-min="5">5 min</button>
+      <button data-min="10">10 min</button>
+      <button data-min="15">15 min</button>
+      <button data-min="30">30 min</button>
+      <input
+        id="custom"
+        type="number"
+        min="1"
+        max="180"
+        placeholder="min"
+        aria-label="Minit"
+      />
+      <button id="set">Tetapkan</button>
+    </div>
+    <div class="row">
+      <button id="start">Mula</button>
+      <button id="reset">Set semula</button>
+      <button id="full">Skrin penuh</button>
+    </div>
+
+    <script>
+      const timeEl = document.getElementById("time"),
+        startBtn = document.getElementById("start");
+      let total = 300,
+        left = 300,
+        endAt = null,
+        tick = null;
+
+      const fmt = (s) =>
+        String(Math.floor(s / 60)).padStart(2, "0") +
+        ":" +
+        String(s % 60).padStart(2, "0");
+      const show = () => {
+        timeEl.textContent = fmt(left);
+        document.title = fmt(left) + " · Pemasa Kelas";
+      };
+
+      function beep() {
+        const ctx = new AudioContext();
+        [0, 0.5, 1].forEach((t) => {
+          const o = ctx.createOscillator();
+          o.frequency.value = 880;
+          o.connect(ctx.destination);
+          o.start(ctx.currentTime + t);
+          o.stop(ctx.currentTime + t + 0.3);
+        });
+      }
+
+      function pause() {
+        clearInterval(tick);
+        tick = null;
+        startBtn.textContent = "Mula";
+      }
+
+      function start() {
+        if (left <= 0) return;
+        // Count against the clock, not the number of ticks, so a busy laptop does not drift.
+        endAt = Date.now() + left * 1000;
+        tick = setInterval(() => {
+          left = Math.max(0, Math.round((endAt - Date.now()) / 1000));
+          show();
+          if (left === 0) {
+            pause();
+            document.body.classList.add("done");
+            beep();
+          }
+        }, 200);
+        startBtn.textContent = "Jeda";
+      }
+
+      function set(sec) {
+        pause();
+        document.body.classList.remove("done");
+        total = left = sec;
+        show();
+      }
+
+      startBtn.onclick = () => (tick ? pause() : start());
+      document.getElementById("reset").onclick = () => set(total);
+      document.getElementById("full").onclick = () =>
+        document.fullscreenElement
+          ? document.exitFullscreen()
+          : document.documentElement.requestFullscreen();
+      document.getElementById("set").onclick = () => {
+        const m = parseInt(document.getElementById("custom").value, 10);
+        if (m >= 1 && m <= 180) set(m * 60);
+      };
+      document
+        .querySelectorAll("[data-min]")
+        .forEach((b) => (b.onclick = () => set(b.dataset.min * 60)));
+      document.addEventListener("keydown", (e) => {
+        if (e.code === "Space" && e.target.tagName !== "INPUT") {
+          e.preventDefault();
+          startBtn.click();
+        }
+      });
+      show();
+    </script>
+  </body>
+</html>
